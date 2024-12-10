@@ -12,20 +12,20 @@ pipeline {
         }
         stage("Verify SSH connection to server") {
             steps {
-                sshagent(credentials: ['aws-ec2']) {
+                sshagent(credentials: ['ubuntu-vm-ssh']) {
                     sh '''
-                        ssh -o StrictHostKeyChecking=no ec2-user@13.40.116.143 whoami
+                        ssh -o StrictHostKeyChecking=no ubuntu@<SERVER_IP> whoami
                     '''
                 }
             }
         }        
-        stage("Clear all running docker containers") {
+        stage("Clear all running Docker containers") {
             steps {
                 script {
                     try {
-                        sh 'docker rm -f $(docker ps -a -q)'
+                        sh 'docker rm -f $(docker ps -a -q) || echo "No running containers to clear."'
                     } catch (Exception e) {
-                        echo 'No running container to clear up...'
+                        echo 'Error clearing containers: ' + e.getMessage()
                     }
                 }
             }
@@ -44,7 +44,14 @@ pipeline {
         stage("Populate .env file") {
             steps {
                 dir("/var/lib/jenkins/workspace/envs/laravel-test") {
-                    fileOperations([fileCopyOperation(excludes: '', flattenFiles: true, includes: '.env', targetLocation: "${WORKSPACE}")])
+                    fileOperations([
+                        fileCopyOperation(
+                            excludes: '', 
+                            flattenFiles: true, 
+                            includes: '.env', 
+                            targetLocation: "${WORKSPACE}"
+                        )
+                    ])
                 }
             }
         }              
@@ -56,21 +63,25 @@ pipeline {
     }
     post {
         success {
-            sh 'cd "/var/lib/jenkins/workspace/LaravelTest"'
-            sh 'rm -rf artifact.zip'
-            sh 'zip -r artifact.zip . -x "*node_modules**"'
-            withCredentials([sshUserPrivateKey(credentialsId: "aws-ec2", keyFileVariable: 'keyfile')]) {
-                sh 'scp -v -o StrictHostKeyChecking=no -i ${keyfile} /var/lib/jenkins/workspace/LaravelTest/artifact.zip ec2-user@13.40.116.143:/home/ec2-user/artifact'
+            script {
+                sh 'cd "/var/lib/jenkins/workspace/LaravelTest"'
+                sh 'rm -rf artifact.zip'
+                sh 'zip -r artifact.zip . -x "*node_modules**"'
             }
-            sshagent(credentials: ['aws-ec2']) {
-                sh 'ssh -o StrictHostKeyChecking=no ec2-user@13.40.116.143 unzip -o /home/ec2-user/artifact/artifact.zip -d /var/www/html'
-                script {
-                    try {
-                        sh 'ssh -o StrictHostKeyChecking=no ec2-user@13.40.116.143 sudo chmod 777 /var/www/html/storage -R'
-                    } catch (Exception e) {
-                        echo 'Some file permissions could not be updated.'
-                    }
-                }
+            withCredentials([sshUserPrivateKey(credentialsId: 'ubuntu-vm-ssh', keyFileVariable: 'keyfile')]) {
+                sh '''
+                    scp -v -o StrictHostKeyChecking=no -i ${keyfile} \
+                        /var/lib/jenkins/workspace/LaravelTest/artifact.zip \
+                        abdo@192.168.1.9:/home/ubuntu/artifact
+                '''
+            }
+            sshagent(credentials: ['ubuntu-vm-ssh']) {
+                sh '''
+                    ssh -o StrictHostKeyChecking=no ubuntu@<SERVER_IP> \
+                        "unzip -o /home/ubuntu/artifact/artifact.zip -d /var/www/html"
+                    ssh -o StrictHostKeyChecking=no ubuntu@<SERVER_IP> \
+                        "sudo chmod -R 777 /var/www/html/storage"
+                '''
             }                                  
         }
         always {
