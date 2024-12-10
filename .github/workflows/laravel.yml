@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  build:
+  build-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -24,13 +24,13 @@ jobs:
           docker version
           docker compose version
 
-      # Verify SSH connection to server
+      # Verify SSH connection to server (Ubuntu VM)
       - name: Verify SSH Connection to Server
         uses: appleboy/ssh-action@v0.1.8
         with:
-          host: 13.40.116.143
-          username: ec2-user
-          key: ${{ secrets.AWS_EC2_PRIVATE_KEY }}
+          host: ${{ secrets.UBUNTU_VM_IP }} # IP de votre serveur Ubuntu
+          username: ${{ secrets.UBUNTU_VM_USER }} # Nom d'utilisateur (ex: ubuntu)
+          key: ${{ secrets.UBUNTU_VM_PRIVATE_KEY }} # Clé privée SSH
           command: whoami
 
       # Clear all running Docker containers
@@ -58,6 +58,32 @@ jobs:
       - name: Run Tests
         run: |
           docker compose run --rm artisan test
+
+      # Create an artifact
+      - name: Create Artifact
+        run: |
+          cd "/var/lib/jenkins/workspace/LaravelTest"
+          rm -rf artifact.zip
+          zip -r artifact.zip . -x "*node_modules**"
+
+      # Deploy Artifact to Ubuntu VM
+      - name: Deploy Artifact to Ubuntu VM
+        uses: appleboy/scp-action@v0.1.3
+        with:
+          source: /var/lib/jenkins/workspace/LaravelTest/artifact.zip
+          target: ${{ secrets.UBUNTU_VM_USER }}@${{ secrets.UBUNTU_VM_IP }}:/home/${{ secrets.UBUNTU_VM_USER }}/artifact
+          key: ${{ secrets.UBUNTU_VM_PRIVATE_KEY }}
+
+      # Unzip artifact and update permissions on Ubuntu VM
+      - name: Unzip and Update Permissions on Ubuntu VM
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.UBUNTU_VM_IP }}
+          username: ${{ secrets.UBUNTU_VM_USER }}
+          key: ${{ secrets.UBUNTU_VM_PRIVATE_KEY }}
+          command: |
+            unzip -o /home/${{ secrets.UBUNTU_VM_USER }}/artifact/artifact.zip -d /var/www/html
+            sudo chmod 777 /var/www/html/storage -R || echo "Some file permissions could not be updated."
 
       # Tear down Docker
       - name: Tear Down Docker
