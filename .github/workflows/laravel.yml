@@ -1,0 +1,66 @@
+name: Laravel CI/CD Workflow
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout repository
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # Verify Docker tooling
+      - name: Verify Docker Tooling
+        run: |
+          docker info
+          docker version
+          docker compose version
+
+      # Verify SSH connection to server
+      - name: Verify SSH Connection to Server
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: 13.40.116.143
+          username: ec2-user
+          key: ${{ secrets.AWS_EC2_PRIVATE_KEY }}
+          command: whoami
+
+      # Clear all running Docker containers
+      - name: Clear All Running Docker Containers
+        run: |
+          docker rm -f $(docker ps -a -q) || echo "No running container to clear up..."
+
+      # Start Docker containers
+      - name: Start Docker
+        run: |
+          make up
+          docker compose ps
+
+      # Run Composer install
+      - name: Run Composer Install
+        run: |
+          docker compose run --rm composer install
+
+      # Populate .env file
+      - name: Populate .env File
+        run: |
+          cp .env /var/lib/jenkins/workspace/envs/laravel-test
+
+      # Run Tests
+      - name: Run Tests
+        run: |
+          docker compose run --rm artisan test
+
+      # Tear down Docker
+      - name: Tear Down Docker
+        run: |
+          docker compose down --remove-orphans -v
+          docker compose ps
