@@ -81,9 +81,10 @@ jobs:
           host: ${{ secrets.UBUNTU_VM_IP }}
           username: ${{ secrets.UBUNTU_VM_USER }}
           key: ${{ secrets.UBUNTU_VM_PRIVATE_KEY }}
-          command: |
+          script: |
             unzip -o /home/${{ secrets.UBUNTU_VM_USER }}/artifact/artifact.zip -d /var/www/html
             sudo chmod 777 /var/www/html/storage -R || echo "Some file permissions could not be updated."
+
 
       # Tear down Docker
       - name: Tear Down Docker
