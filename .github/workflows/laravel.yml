@@ -21,7 +21,7 @@ jobs:
           MYSQL_PASSWORD: secret
           MYSQL_ROOT_PASSWORD: secret
         ports:
-          - 3306:3306
+          - 3307:3306  # Changez le port 3306 vers 3307
         options: >-
           --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -psecret"
           --health-interval=10s
@@ -31,7 +31,7 @@ jobs:
       redis:
         image: redis:alpine
         ports:
-          - 6379:6379
+          - 6380:6379  # Changez le port 6379 vers 6380
         options: >-
           --health-cmd="redis-cli ping"
           --health-interval=10s
@@ -50,6 +50,13 @@ jobs:
           sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           sudo chmod +x /usr/local/bin/docker-compose
           docker-compose --version
+
+      - name: Stop and remove existing containers
+        run: |
+          docker ps -aq --filter "name=redis" | xargs --no-run-if-empty docker stop
+          docker ps -aq --filter "name=mysql" | xargs --no-run-if-empty docker stop
+          docker ps -aq --filter "name=redis" | xargs --no-run-if-empty docker rm
+          docker ps -aq --filter "name=mysql" | xargs --no-run-if-empty docker rm
 
       - name: Build Docker images
         run: docker-compose -f docker-compose.yml build
