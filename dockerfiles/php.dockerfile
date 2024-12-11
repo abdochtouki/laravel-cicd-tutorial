@@ -1,17 +1,14 @@
-# Utiliser l'image PHP-FPM Alpine
-FROM php:8.0.20RC1-fpm-alpine3.16
+# Utiliser une version stable de PHP 8.1
+FROM php:8.1-fpm-alpine
 
-# Définir les arguments pour UID, GID et USER
 ARG UID
 ARG GID
 ARG USER
 
-# Définir les variables d'environnement pour UID, GID et USER
 ENV UID=${UID}
 ENV GID=${GID}
 ENV USER=${USER}
 
-# Créer le répertoire du projet
 RUN mkdir -p /var/www/html
 
 WORKDIR /var/www/html
