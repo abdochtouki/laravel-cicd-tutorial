@@ -1,4 +1,4 @@
-name: Build and Test Laravel App
+name: Laravel Docker CI Pipeline
 
 on:
   push:
@@ -13,22 +13,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout repository
+      # 1. Checkout Repository
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # Start Docker containers
-      - name: Start Docker Containers
+      # 2. Set up Docker environment
+      - name: Set Up Docker
         run: |
-          docker compose up -d
+          docker --version
+          docker compose version
+
+      # 3. Build and Start Services
+      - name: Build and Start Containers
+        run: |
+          docker compose up -d --build
           docker compose ps
 
-      # Install Composer dependencies
+      # 4. Run Composer Install
       - name: Install Composer Dependencies
         run: |
-          docker compose exec app composer install
+          docker compose run --rm composer install
 
-      # Run Artisan tests
+      # 5. Run Artisan Migrations
+      - name: Run Migrations
+        run: |
+          docker compose run --rm artisan migrate --force
+
+      # 6. Run Laravel Tests
       - name: Run Laravel Tests
         run: |
-          docker compose exec app php artisan test
+          docker compose run --rm artisan test
+
+      # 7. Tear Down Containers
+      - name: Tear Down Containers
+        run: |
+          docker compose down --remove-orphans -v
