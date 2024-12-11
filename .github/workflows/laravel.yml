@@ -61,6 +61,10 @@ jobs:
       - name: Build Docker images
         run: docker-compose -f docker-compose.yml build
 
+      - name: Install Composer in PHP container
+        run: |
+          docker-compose exec -T php curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
       - name: Run Laravel dependencies
         run: |
           docker-compose -f docker-compose.yml up -d
