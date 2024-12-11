@@ -23,28 +23,40 @@ jobs:
           docker --version
           docker compose version
 
-      # 3. Build and Start Services
+      # 3. Build and Start Containers
       - name: Build and Start Containers
         run: |
           docker compose up -d --build
           docker compose ps
 
-      # 4. Run Composer Install
+      # 4. Fix Ownership and Permissions
+      - name: Fix File Ownership and Permissions
+        run: |
+          docker compose exec php chown -R www-data:www-data /var/www/html
+          docker compose exec php mkdir -p /var/www/html/vendor && \
+          docker compose exec php chown -R www-data:www-data /var/www/html/vendor
+
+      # 5. Configure Git Safe Directory
+      - name: Configure Git Safe Directory
+        run: |
+          docker compose exec php git config --global --add safe.directory /var/www/html
+
+      # 6. Run Composer Install
       - name: Install Composer Dependencies
         run: |
           docker compose run --rm composer install
 
-      # 5. Run Artisan Migrations
+      # 7. Run Artisan Migrations
       - name: Run Migrations
         run: |
           docker compose run --rm artisan migrate --force
 
-      # 6. Run Laravel Tests
+      # 8. Run Laravel Tests
       - name: Run Laravel Tests
         run: |
           docker compose run --rm artisan test
 
-      # 7. Tear Down Containers
+      # 9. Tear Down Containers
       - name: Tear Down Containers
         run: |
           docker compose down --remove-orphans -v
